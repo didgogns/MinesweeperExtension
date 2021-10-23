@@ -7,3 +7,7 @@ This project is intended to do some experiments based on Minesweeper Solver by @
 - Build minesweeper.jar with cloned Minesweeper project
 - Add dependency on minesweeper.jar
 - Run main functions
+
+# Plan
+
+Make a big testset (1M board on beg, int, exp)
