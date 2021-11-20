@@ -16,11 +16,15 @@ import minesweeper.solver.settings.SolverSettings;
 import minesweeper.structure.Action;
 import minesweeper.structure.Location;
 
-import java.math.BigInteger;
 import java.util.*;
 
 public class MinesweeperCommonStateAnalyzer {
-    private static boolean playGame(GameStateModel gs, Solver solver, Map<GameStateFuzzy, GameStateResult> frequencyMap) {
+    // Total number of simulations
+    static int gamesMax = 2000000;
+    // Extraction target: if 1000, every state with 1 in 1000 or more chance will be extracted
+    static int target = 2000;
+
+    private static boolean playGame(GameStateModel gs, Solver solver, Map<GameStateFuzzy, GameStateResult> frequencyMap, int steps) {
 
         int state = gs.getGameState();
 
@@ -66,15 +70,17 @@ public class MinesweeperCommonStateAnalyzer {
             GameStateFuzzy fuzzyState = states.get(i);
             Location location = fuzzyStateActions.get(i);
 
-            if (!frequencyMap.containsKey(fuzzyState)) {
+            if (!frequencyMap.containsKey(fuzzyState) && steps < gamesMax / target * 10) {
                 frequencyMap.put(fuzzyState, new GameStateResult(fuzzyState));
             }
-            frequencyMap.get(fuzzyState).addLocation(location);
-            if (state == GameStateModel.LOST) {
-                frequencyMap.get(fuzzyState).addLose(location);
-            }
-            else {
-                frequencyMap.get(fuzzyState).addWin(location);
+            if (frequencyMap.containsKey(fuzzyState)) {
+                frequencyMap.get(fuzzyState).addLocation(fuzzyState, location);
+                if (state == GameStateModel.LOST) {
+                    frequencyMap.get(fuzzyState).addLose();
+                }
+                else {
+                    frequencyMap.get(fuzzyState).addWin();
+                }
             }
         }
 
@@ -108,9 +114,9 @@ public class MinesweeperCommonStateAnalyzer {
             locationMap.put(GameStateFuzzyFactory.create(Arrays.asList(Arrays.asList(0, 0, 2)), gameSettings),
                     new Location(gameSettings.width - 1, gameSettings.height - 1));
 
-            Solver solver = new OpeningStrategySolver(gs, preferences, false, locationMap);
+            Solver solver = new Solver(gs, preferences, false);
 
-            boolean win = playGame(gs, solver, frequencyMap);
+            boolean win = playGame(gs, solver, frequencyMap, steps);
 
             if (win) {
                 wins++;
@@ -120,18 +126,21 @@ public class MinesweeperCommonStateAnalyzer {
         List<GameStateResult> frequentStates = new ArrayList<>(frequencyMap.values());
         frequentStates.sort(new GameStateResult.FrequencyComparator());
 
+        double mean = 1.0 * gamesMax / target;
+        double stdev = Math.sqrt(mean * (1 - 1.0 / target));
+        double limit = mean - 4 * stdev;
+
         for (GameStateResult state : frequentStates) {
-            if ((double) state.appeared * state.appeared < gamesMax) break;
+            if (state.appeared < limit) break;
             System.out.println(state);
         }
         System.out.println(wins);
     }
 
     public static void main(String[] args) {
-        GameSettings gameSettings = GameSettings.EXPERT;
+        GameSettings gameSettings = GameSettings.BEGINNER;
         GameType gameType = GameType.STANDARD;
         SolverSettings preferences = SettingsFactory.GetSettings(SettingsFactory.Setting.SMALL_ANALYSIS);
-        int gamesMax = 1000000;
         Long gameGenerator = new Random().nextLong();
         run(gamesMax, gameSettings, gameType, gameGenerator, preferences);
     }

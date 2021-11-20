@@ -68,15 +68,29 @@ public class GameStateFuzzy {
         return false;
     }
 
+    public int getSymmetry(GameStateFuzzy other) {
+        int iterations = 4;
+        if (this.width == this.height) iterations = 8;
+
+        for (int i = 0; i < iterations; i++) {
+            if (compare(other.board, (i & 4) != 0, (i & 2) != 0, (i & 1) != 0)) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("GameStateFuzzy other must be equal to this!");
+    }
+
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
+        builder.append("```\n");
         for (int row = 0; row < height; row++) {
             for (int col = 0; col < width; col++) {
                 builder.append(board[col][row]);
             }
             builder.append("\n");
         }
+        builder.append("```");
         return builder.toString();
     }
 

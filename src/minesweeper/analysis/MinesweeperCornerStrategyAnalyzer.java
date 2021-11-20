@@ -98,11 +98,11 @@ public class MinesweeperCornerStrategyAnalyzer {
     }
 
     public static void main(String[] args) {
-        GameSettings gameSettings = GameSettings.create(60, 60, 890);
+        GameSettings gameSettings = GameSettings.create(60, 60, 900);
         GameType gameType = GameType.STANDARD;
         SolverSettings preferences = SettingsFactory.GetSettings(SettingsFactory.Setting.SMALL_ANALYSIS);
         int gamesMax = 10000;
         Long gameGenerator = (new Random()).nextLong();
-        run(gamesMax, gameSettings, gameType, gameGenerator, preferences, false);
+        run(gamesMax, gameSettings, gameType, gameGenerator, preferences, true);
     }
 }
