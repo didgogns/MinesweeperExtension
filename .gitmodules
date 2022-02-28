@@ -1,0 +1,3 @@
+[submodule "Minesweeper"]
+	path = Minesweeper
+	url = https://github.com/DavidNHill/Minesweeper

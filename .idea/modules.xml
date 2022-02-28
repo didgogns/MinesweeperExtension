@@ -2,7 +2,14 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/Minesweeper.iml" filepath="$PROJECT_DIR$/Minesweeper.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/Asynchronous/Asynchronous.iml" filepath="$PROJECT_DIR$/Minesweeper/Asynchronous/Asynchronous.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/MineSweeperSolver/MineSweeperSolver.iml" filepath="$PROJECT_DIR$/Minesweeper/MineSweeperSolver/MineSweeperSolver.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/Minesweeper/Minesweeper.iml" filepath="$PROJECT_DIR$/Minesweeper/Minesweeper/Minesweeper.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/MinesweeperBulk/MinesweeperBulk.iml" filepath="$PROJECT_DIR$/Minesweeper/MinesweeperBulk/MinesweeperBulk.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/MinesweeperExplorer/MinesweeperExplorer.iml" filepath="$PROJECT_DIR$/Minesweeper/MinesweeperExplorer/MinesweeperExplorer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/MinesweeperExtension.iml" filepath="$PROJECT_DIR$/MinesweeperExtension.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/MinesweeperGameState/MinesweeperGameState.iml" filepath="$PROJECT_DIR$/Minesweeper/MinesweeperGameState/MinesweeperGameState.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Minesweeper/WindowController/WindowController.iml" filepath="$PROJECT_DIR$/Minesweeper/WindowController/WindowController.iml" />
     </modules>
   </component>
 </project>
