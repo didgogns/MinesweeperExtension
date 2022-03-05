@@ -14,9 +14,18 @@ import minesweeper.solver.settings.SolverSettings;
 import minesweeper.structure.Action;
 import minesweeper.structure.Location;
 import minesweeper.util.CommandLineUtil;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
 
 public class MinesweeperCommonStateAnalyzer {
     private static boolean playGame(
@@ -135,15 +144,19 @@ public class MinesweeperCommonStateAnalyzer {
         System.out.println(wins);
     }
 
+    /**
+     * Example args: -setting intermediate -gamesMax 1000000 -target 1000
+     * @param args
+     */
     public static void main(String[] args) {
         CommandLineParser parser = new DefaultParser();
         Options options = new Options();
         options.addOption("setting", true, "Game setting. Difficulty name or in the form of 12x34/56");
-        options.addOption("gameType", false, "Game type. If not provided, defaults to standard");
+        options.addOption("gameType", true, "Game type. If not provided, defaults to standard");
         options.addOption("gamesMax", true, "Number of games to simulate.");
         options.addOption("target", true, "It saves all game state with gamesMax / target occurrences.");
-        options.addOption("sigma", false, "Standard deviation, default is 4.");
-        options.addOption("seed", false, "RNG seed. If not provided, default seed is used.");
+        options.addOption("sigma", true, "Standard deviation, default is 4.");
+        options.addOption("seed", true, "RNG seed. If not provided, default seed is used.");
 
         CommandLine cmdline;
         try {
