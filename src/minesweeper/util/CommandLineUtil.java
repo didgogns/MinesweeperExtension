@@ -4,7 +4,6 @@ import minesweeper.settings.GameSettings;
 import minesweeper.settings.GameType;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class CommandLineUtil {

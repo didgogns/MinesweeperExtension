@@ -227,4 +227,10 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,eclipse,intellij,java
 
-Minesweeper/*/*.iml
+Minesweeper/Asynchronous/Asynchronous.iml
+Minesweeper/Minesweeper/Minesweeper.iml
+Minesweeper/MinesweeperBulk/MinesweeperBulk.iml
+Minesweeper/MinesweeperExplorer/MinesweeperExplorer.iml
+Minesweeper/MinesweeperGameState/MinesweeperGameState.iml
+Minesweeper/MinesweeperSolver/MinesweeperSolver.iml
+Minesweeper/WindowController/WindowController.iml
