@@ -10,5 +10,14 @@
     <orderEntry type="module" module-name="MineSweeperSolver" />
     <orderEntry type="module" module-name="MinesweeperGameState" />
     <orderEntry type="module" module-name="Asynchronous" />
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="jar://$MODULE_DIR$/commons-cli-1.5.0.jar!/" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES />
+      </library>
+    </orderEntry>
   </component>
 </module>

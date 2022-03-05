@@ -5,6 +5,7 @@ This project is intended to do some experiments based on Minesweeper Solver by @
 # How to run
 
 - `git submodule init`
+- `git submodule update`
 - Configure project using your IDE. I suggest using Intellij IDEA.
 - Run main functions
 

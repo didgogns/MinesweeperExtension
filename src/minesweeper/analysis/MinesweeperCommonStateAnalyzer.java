@@ -1,7 +1,6 @@
 package minesweeper.analysis;
 
 import minesweeper.analysis.gamestate.GameStateFuzzy;
-import minesweeper.analysis.gamestate.GameStateFuzzyFactory;
 import minesweeper.analysis.gamestate.GameStateResult;
 import minesweeper.gamestate.GameFactory;
 import minesweeper.gamestate.GameStateModel;
@@ -9,22 +8,25 @@ import minesweeper.random.DefaultRNG;
 import minesweeper.random.RNG;
 import minesweeper.settings.GameSettings;
 import minesweeper.settings.GameType;
-import minesweeper.solver.OpeningStrategySolver;
 import minesweeper.solver.Solver;
 import minesweeper.solver.settings.SettingsFactory;
 import minesweeper.solver.settings.SolverSettings;
 import minesweeper.structure.Action;
 import minesweeper.structure.Location;
+import minesweeper.util.CommandLineUtil;
+import org.apache.commons.cli.*;
 
 import java.util.*;
 
 public class MinesweeperCommonStateAnalyzer {
-    // Total number of simulations
-    static int gamesMax = 2000000;
-    // Extraction target: if 1000, every state with 1 in 1000 or more chance will be extracted
-    static int target = 2000;
-
-    private static boolean playGame(GameStateModel gs, Solver solver, Map<GameStateFuzzy, GameStateResult> frequencyMap, int steps) {
+    private static boolean playGame(
+            GameStateModel gs,
+            Solver solver,
+            Map<GameStateFuzzy, GameStateResult> frequencyMap,
+            int steps,
+            int gamesMax,
+            int target
+    ) {
 
         int state = gs.getGameState();
 
@@ -33,7 +35,7 @@ public class MinesweeperCommonStateAnalyzer {
 
         play: while (true) {
             if (state == GameStateModel.LOST || state == GameStateModel.WON) {
-                break play;
+                break;
             }
 
             Action[] moves;
@@ -57,8 +59,8 @@ public class MinesweeperCommonStateAnalyzer {
             }
 
             // play all the moves until all done, or the game is won or lost
-            for (int i = 0; i < moves.length; i++) {
-                gs.doAction(moves[i]);
+            for (Action move : moves) {
+                gs.doAction(move);
                 state = gs.getGameState();
                 if (state == GameStateModel.LOST || state == GameStateModel.WON) {
                     break play;
@@ -84,16 +86,18 @@ public class MinesweeperCommonStateAnalyzer {
             }
         }
 
-        if (state == GameStateModel.LOST) {
-            return false;
-        }
-        else {
-            return true;
-        }
+        return state != GameStateModel.LOST;
     }
 
-    public static void run(int gamesMax, GameSettings gameSettings, GameType gameType, Long gameGenerator,
-                           SolverSettings preferences) {
+    public static void run(
+            GameSettings gameSettings,
+            GameType gameType,
+            Long gameGenerator,
+            SolverSettings preferences,
+            int gamesMax,
+            int target,
+            double sigma
+    ) {
         System.out.println("At BulkRunner run method");
 
         int steps = 0;
@@ -108,15 +112,9 @@ public class MinesweeperCommonStateAnalyzer {
             steps++;
             GameStateModel gs = GameFactory.create(gameType, gameSettings, seeder.random(0));
 
-            Map<GameStateFuzzy, Location> locationMap = new HashMap<>();
-            locationMap.put(GameStateFuzzyFactory.create(Arrays.asList(Arrays.asList(0, 0, 1)), gameSettings),
-                    new Location(gameSettings.width - 1, gameSettings.height - 1));
-            locationMap.put(GameStateFuzzyFactory.create(Arrays.asList(Arrays.asList(0, 0, 2)), gameSettings),
-                    new Location(gameSettings.width - 1, gameSettings.height - 1));
-
             Solver solver = new Solver(gs, preferences, false);
 
-            boolean win = playGame(gs, solver, frequencyMap, steps);
+            boolean win = playGame(gs, solver, frequencyMap, steps, gamesMax, target);
 
             if (win) {
                 wins++;
@@ -128,7 +126,7 @@ public class MinesweeperCommonStateAnalyzer {
 
         double mean = 1.0 * gamesMax / target;
         double stdev = Math.sqrt(mean * (1 - 1.0 / target));
-        double limit = mean - 4 * stdev;
+        double limit = mean - sigma * stdev;
 
         for (GameStateResult state : frequentStates) {
             if (state.appeared < limit) break;
@@ -138,10 +136,42 @@ public class MinesweeperCommonStateAnalyzer {
     }
 
     public static void main(String[] args) {
-        GameSettings gameSettings = GameSettings.BEGINNER;
+        CommandLineParser parser = new DefaultParser();
+        Options options = new Options();
+        options.addOption("setting", true, "Game setting. Difficulty name or in the form of 12x34/56");
+        options.addOption("gameType", false, "Game type. If not provided, defaults to standard");
+        options.addOption("gamesMax", true, "Number of games to simulate.");
+        options.addOption("target", true, "It saves all game state with gamesMax / target occurrences.");
+        options.addOption("sigma", false, "Standard deviation, default is 4.");
+        options.addOption("seed", false, "RNG seed. If not provided, default seed is used.");
+
+        CommandLine cmdline;
+        try {
+            cmdline = parser.parse(options, args);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return;
+        }
+
+        GameSettings gameSettings = CommandLineUtil.settingsFromString(cmdline.getOptionValue("setting"));
         GameType gameType = GameType.STANDARD;
+        if (cmdline.hasOption("gameType")) {
+            gameType = CommandLineUtil.typesFromString(cmdline.getOptionValue("gameType"));
+        }
+        // Total number of simulations
+        int gamesMax = Integer.parseInt(cmdline.getOptionValue("gamesMax"));
+        // Extraction target: if 1000, every state with 1 in 1000 or more chance will be extracted
+        int target = Integer.parseInt(cmdline.getOptionValue("target"));
+        double sigma = 4.0;
+        if (cmdline.hasOption("sigma")) {
+            sigma = Double.parseDouble(cmdline.getOptionValue("sigma"));
+        }
         SolverSettings preferences = SettingsFactory.GetSettings(SettingsFactory.Setting.SMALL_ANALYSIS);
-        Long gameGenerator = new Random().nextLong();
-        run(gamesMax, gameSettings, gameType, gameGenerator, preferences);
+        long gameGenerator = new Random().nextLong();
+        if (cmdline.hasOption("seed")) {
+            gameGenerator = Long.parseLong(cmdline.getOptionValue("seed"));
+        }
+
+        run(gameSettings, gameType, gameGenerator, preferences, gamesMax, target, sigma);
     }
 }
