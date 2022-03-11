@@ -11,11 +11,9 @@ public class ExtendedWorker implements Runnable {
 
     private boolean stop = false;
     private final ExtendedBulk controller;
-    private final SolverSettings solverSettings;
 
-    protected ExtendedWorker(ExtendedBulk controller, SolverSettings solverSettings) {
+    protected ExtendedWorker(ExtendedBulk controller) {
         this.controller = controller;
-        this.solverSettings = solverSettings;
     }
 
     @Override
@@ -52,7 +50,7 @@ public class ExtendedWorker implements Runnable {
         }
 
         System.out.println(Thread.currentThread().getName() + " is stopping");
-
+        controller.consumer.print();
     }
 
     private void playGame(ExtendedRequest request) {
@@ -64,7 +62,7 @@ public class ExtendedWorker implements Runnable {
             return;
         }
 
-        Solver solver = new Solver(request.gs, this.solverSettings, false);
+        Solver solver = controller.solverFunction.apply(request.gs);
 
         play: while (true) {
 

@@ -1,9 +1,9 @@
 package minesweeper.analysis;
 
-import minesweeper.gamestate.GameFactory;
+import minesweeper.bulk.ExtendedBulk;
+import minesweeper.bulk.ExtendedConsumer;
+import minesweeper.bulk.ExtendedRequest;
 import minesweeper.gamestate.GameStateModel;
-import minesweeper.random.DefaultRNG;
-import minesweeper.random.RNG;
 import minesweeper.settings.GameSettings;
 import minesweeper.settings.GameType;
 import minesweeper.solver.Solver;
@@ -17,63 +17,40 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import java.math.BigDecimal;
 import java.util.Random;
 
 public class WinPer3bvAnalysis {
-    private static class WinPer3bvAnalysisResult {
+    private static class WinPer3bvAnalysisResult extends ExtendedConsumer {
         public int clicks;
-        public boolean won;
+        public int won;
+        public Random random;
 
-        public WinPer3bvAnalysisResult(int clicks, boolean won) {
-            this.clicks = clicks;
-            this.won = won;
-        }
-    }
-
-    private static WinPer3bvAnalysisResult playGame(GameStateModel gs, Solver solver) {
-        int state = gs.getGameState();
-        int clicks = 0;
-
-        while (state != GameStateModel.LOST && state != GameStateModel.WON) {
-            Action[] moves;
-            try {
-                solver.start();
-                moves = solver.getResult();
-            } catch (Exception e) {
-                System.out.println("Game " + gs.showGameKey() + " has thrown an exception!");
-                return new WinPer3bvAnalysisResult(clicks, false);
-            }
-
-            if (moves.length == 0) {
-                System.err.println("No moves returned by the solver for game " + gs.showGameKey());
-                return new WinPer3bvAnalysisResult(clicks, false);
-            }
-
-            for (Action move : moves) {
-                gs.doAction(move);
-                clicks++;
-                state = gs.getGameState();
-                if (state == GameStateModel.LOST || state == GameStateModel.WON) {
-                    new WinPer3bvAnalysisResult(clicks, state == GameStateModel.WON);
-                }
-            }
+        public WinPer3bvAnalysisResult() {
+            this.clicks = 0;
+            this.won = 0;
+            random = new Random();
         }
 
-        return new WinPer3bvAnalysisResult(clicks, state == GameStateModel.WON);
-    }
-
-    public static void run(long limit, GameSettings gameSettings, GameType gameType, Long gameGenerator, SolverSettings preferences) {
-        long clickCnt = 0;
-        long win = 0;
-        RNG seeder = DefaultRNG.getRNG(gameGenerator);
-        while (clickCnt < limit) {
-            GameStateModel gs = GameFactory.create(gameType, gameSettings, seeder.random(0));
-            Solver solver = new Solver(gs, preferences, false);
-            WinPer3bvAnalysisResult result = playGame(gs, solver);
-            clickCnt += result.clicks;
-            if (result.won) win++;
+        @Override
+        public void processRequest(ExtendedRequest request) {
+            if (request.gs.getGameState() == GameStateModel.WON) this.won++;
+            else if (request.gs.getGameState() != GameStateModel.LOST) {
+                System.out.println(request.gs.getGameState());
+                // throw exception?
+            }
+            if (random.nextInt(100000) == 0) print();
         }
-        System.out.println(clickCnt + " clicks made, " + win + " games win.");
+
+        @Override
+        public void processAction(Action action, BigDecimal probability, boolean isSafe) {
+            this.clicks++;
+        }
+
+        @Override
+        public void print() {
+            System.out.println(clicks + " clicks made, " + won + " games win.");
+        }
     }
 
     /**
@@ -87,6 +64,7 @@ public class WinPer3bvAnalysis {
         options.addOption("gameType", true, "Game type. If not provided, defaults to standard");
         options.addOption("limit", true, "Number of left clicks to simulate. No flagging.");
         options.addOption("seed", true, "RNG seed. If not provided, default seed is used.");
+        options.addOption("core", true, "Number of cores to use. Default is 1.");
 
         CommandLine cmdline;
         try {
@@ -105,10 +83,21 @@ public class WinPer3bvAnalysis {
         SolverSettings preferences = SettingsFactory.GetSettings(SettingsFactory.Setting.SMALL_ANALYSIS);
         long gameGenerator = new Random().nextLong();
         if (cmdline.hasOption("seed")) {
-            System.out.println(cmdline.getOptionValue("seed"));
             gameGenerator = Long.parseLong(cmdline.getOptionValue("seed"));
         }
-
-        run(limit, gameSettings, gameType, gameGenerator, preferences);
+        int workers = 1;
+        if (cmdline.hasOption("core")) {
+            workers = Integer.parseInt(cmdline.getOptionValue("core"));
+        }
+        ExtendedBulk bulk = new ExtendedBulk(gameGenerator, (ExtendedConsumer consumer) -> {
+            if (!(consumer instanceof WinPer3bvAnalysisResult)) {
+                return false;
+            }
+            WinPer3bvAnalysisResult analysisResult = (WinPer3bvAnalysisResult) consumer;
+            return (analysisResult.clicks >= limit);
+        }, gameType, gameSettings, (GameStateModel model) -> new Solver(model, preferences, false), workers);
+        bulk.registerConsumer(new WinPer3bvAnalysisResult());
+        bulk.run();
+        System.out.println(bulk.getDuration());
     }
 }

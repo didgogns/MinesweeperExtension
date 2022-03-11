@@ -22,8 +22,8 @@ public class ExtendedRequest {
         RUN
     }
 
-    protected BulkAction action;
-    protected int sequence;    // the sequence number for this request
-    protected int slot;        // the slot the request is to be store in the buffer
-    protected GameStateModel gs;
+    public BulkAction action;
+    public int sequence;    // the sequence number for this request
+    public int slot;        // the slot the request is to be store in the buffer
+    public GameStateModel gs;
 }

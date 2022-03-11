@@ -6,10 +6,15 @@ import minesweeper.random.DefaultRNG;
 import minesweeper.random.RNG;
 import minesweeper.settings.GameSettings;
 import minesweeper.settings.GameType;
+import minesweeper.solver.Solver;
 import minesweeper.solver.settings.SolverSettings;
 import minesweeper.structure.Action;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -26,7 +31,6 @@ public class ExtendedBulk implements Runnable {
     private final GameType gameType;
 
     private final int workers;
-    private final SolverSettings solverSettings;
     private final int bufferSize;
     private final ExtendedRequest[] buffer;
     private final ExtendedWorker[] bulkWorkers;
@@ -43,28 +47,30 @@ public class ExtendedBulk implements Runnable {
     private final RNG seeder;
     private volatile boolean finished = false;
 
-    private Thread mainThread;
     private long startTime;
     private long endTime;
+    private ScheduledExecutorService executor;
 
-    Function<ExtendedBulk, Boolean> endCondition;
+    Function<ExtendedConsumer, Boolean> endCondition;
+    Function<GameStateModel, Solver> solverFunction;
     public ExtendedConsumer consumer;
 
-    public ExtendedBulk(long seed, Function<ExtendedBulk, Boolean> endCondition, GameType gameType, GameSettings gameSettings, SolverSettings solverSettings, int workers) {
-        this(seed, endCondition, gameType, gameSettings, solverSettings, workers, DEFAULT_BUFFER_PER_WORKER);
+    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, Solver> solverFunction, int workers) {
+        this(seed, endCondition, gameType, gameSettings, solverFunction, workers, DEFAULT_BUFFER_PER_WORKER);
     }
 
-    public ExtendedBulk(long seed, Function<ExtendedBulk, Boolean> endCondition, GameType gameType, GameSettings gameSettings, SolverSettings solverSettings, int workers, int bufferPerWorker) {
+    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, Solver> solverFunction, int workers, int bufferPerWorker) {
         this.gameType = gameType;
         this.gameSettings = gameSettings;
         this.endCondition = endCondition;
         this.seeder = DefaultRNG.getRNG(seed);
         this.workers = workers;
         this.bulkWorkers = new ExtendedWorker[this.workers];
-        this.solverSettings = solverSettings;
+        this.solverFunction = solverFunction;
 
         this.bufferSize = bufferPerWorker * this.workers;
         this.buffer = new ExtendedRequest[bufferSize];
+        this.preActions = Collections.emptyList();
     }
 
     public void registerConsumer(ExtendedConsumer consumer) {
@@ -78,31 +84,27 @@ public class ExtendedBulk implements Runnable {
     public void run() {
         this.startTime = System.currentTimeMillis();
 
-        // remember the current thread, so we can wake it when completed
-        mainThread = Thread.currentThread();
 
         for (int i=0; i < workers; i++) {
-            bulkWorkers[i] = new ExtendedWorker(this, solverSettings);
+            bulkWorkers[i] = new ExtendedWorker(this);
             new Thread(bulkWorkers[i], "worker-" + (i+1)).start();
         }
 
-        while (!finished) {
-            try {
-                Thread.sleep(10000);
-                System.out.println("Main thread waiting for bulk run to complete...");
-            } catch (InterruptedException e) {
-                // process the event and then set it to null
-                consumer.print();
+        executor = Executors.newScheduledThreadPool(1);
+        executor.scheduleAtFixedRate(() -> {
+            System.out.println("Main thread waiting for bulk run to complete...");
+            if (finished) {
+                executor.shutdown();
+                this.endTime = System.currentTimeMillis();
+                System.out.println("Finished after " + getDuration() + " milliseconds");
             }
-        }
-
-        this.endTime = System.currentTimeMillis();
-        System.out.println("Finished after " + getDuration() + " milliseconds");
+            // TODO consumer.print sometimes?
+        }, 10, 10, TimeUnit.SECONDS);
     }
 
     /**
-     * returns how log the bulk run took in milliseconds, or how long it has been running depending if it has finished ot not
-     * @return
+     *
+     * @return how long the bulk run took in milliseconds, or how long it has been running depending if it has finished ot not
      */
     public long getDuration() {
 
@@ -131,13 +133,13 @@ public class ExtendedBulk implements Runnable {
         }
 
         // if we have played all the games or we have been stopped then tell the workers to stop
-        if (this.endCondition.apply(this) || finished) {
+        if (this.endCondition.apply(this.consumer) || finished) {
             return ExtendedRequest.STOP;
         }
 
         // if the next sequence is a long way ahead of the waiting sequence then wait until we catch up.  Tell the worker to wait.
         if (nextSequence > waitingSequence.get() + bufferSize - 2) {
-            System.out.println("Buffer is full after " + nextSequence + " games dispatched");
+            //System.out.println("Buffer is full after " + nextSequence + " games dispatched");
             return ExtendedRequest.WAIT;
         }
         ExtendedRequest next = new ExtendedRequest();
@@ -184,15 +186,12 @@ public class ExtendedBulk implements Runnable {
     }
 
     private void processSlots() {
-        boolean doEvent = false;
-
-        int bufferIdx = waitingSlot.get();
         // process all the games which have been processed and are waiting in the buffer
-        while (buffer[bufferIdx] != null) {
-            ExtendedRequest request = buffer[bufferIdx];
+        while (buffer[waitingSlot.get()] != null) {
+            ExtendedRequest request = buffer[waitingSlot.get()];
             consumer.processRequest(request);
             // clear the buffer and move on to the next slot
-            buffer[bufferIdx] = null;
+            buffer[waitingSlot.get()] = null;
             waitingSlot.incrementAndGet();
             waitingSequence.incrementAndGet();
 
@@ -202,25 +201,11 @@ public class ExtendedBulk implements Runnable {
             }
 
             // if we have run and processed all the games then wake the main thread
-            if (endCondition.apply(this)) {
-                System.out.println("All games played, waking the main thread");
-
+            if (endCondition.apply(this.consumer)) {
+                System.out.println("All games played, exiting the main thread");
                 finished = true;
-
-                doEvent = true;
-                //mainThread.interrupt();
-
-                // provide an update every now and again, do that on the main thread
-            } else if (waitingSequence.get() % REPORT_INTERVAL == 0) {
-               doEvent = true;
+                executor.shutdown();
             }
-
-        }
-
-        // if we have an event to do then interrupt the main thread which will post it
-        if (doEvent) {
-            this.consumer.print();
-            mainThread.interrupt();
         }
     }
 }
