@@ -26,4 +26,5 @@ public class ExtendedRequest {
     public int sequence;    // the sequence number for this request
     public int slot;        // the slot the request is to be store in the buffer
     public GameStateModel gs;
+    public int core;               // the worker number
 }

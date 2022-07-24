@@ -52,14 +52,14 @@ public class ExtendedBulk implements Runnable {
     private ScheduledExecutorService executor;
 
     Function<ExtendedConsumer, Boolean> endCondition;
-    Function<GameStateModel, Solver> solverFunction;
+    Function<GameStateModel, ? extends Solver> solverFunction;
     public ExtendedConsumer consumer;
 
-    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, Solver> solverFunction, int workers) {
+    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, ? extends Solver> solverFunction, int workers) {
         this(seed, endCondition, gameType, gameSettings, solverFunction, workers, DEFAULT_BUFFER_PER_WORKER);
     }
 
-    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, Solver> solverFunction, int workers, int bufferPerWorker) {
+    public ExtendedBulk(long seed, Function<ExtendedConsumer, Boolean> endCondition, GameType gameType, GameSettings gameSettings, Function<GameStateModel, ? extends Solver> solverFunction, int workers, int bufferPerWorker) {
         this.gameType = gameType;
         this.gameSettings = gameSettings;
         this.endCondition = endCondition;
@@ -86,7 +86,7 @@ public class ExtendedBulk implements Runnable {
 
 
         for (int i=0; i < workers; i++) {
-            bulkWorkers[i] = new ExtendedWorker(this);
+            bulkWorkers[i] = new ExtendedWorker(this, i);
             new Thread(bulkWorkers[i], "worker-" + (i+1)).start();
         }
 
@@ -146,7 +146,7 @@ public class ExtendedBulk implements Runnable {
         next.action = ExtendedRequest.BulkAction.RUN;
         next.sequence = this.nextSequence;
         next.slot = this.nextSlot;
-        next.gs = getGameState(seeder.random(0));
+        next.gs = getGameState(seeder);
 
         // roll onto the next sequence
         this.nextSequence++;
@@ -169,10 +169,10 @@ public class ExtendedBulk implements Runnable {
         this.preActions = actions;
     }
 
-    protected GameStateModel getGameState(long seed) {
+    protected GameStateModel getGameState(RNG seeder) {
         // play the pre-actions while not dead
         while (true) {
-            GameStateModel gs = GameFactory.create(this.gameType, this.gameSettings, seed);
+            GameStateModel gs = GameFactory.create(this.gameType, this.gameSettings, seeder.random(0));
             for (Action a: preActions) {
                 gs.doAction(a);
                 if (gs.getGameState() == GameStateModel.LOST) {
@@ -205,6 +205,7 @@ public class ExtendedBulk implements Runnable {
                 System.out.println("All games played, exiting the main thread");
                 finished = true;
                 executor.shutdown();
+                System.out.println(this.consumer.print());
             }
         }
     }

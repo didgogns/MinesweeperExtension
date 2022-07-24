@@ -2,26 +2,29 @@ package minesweeper.bulk;
 
 import minesweeper.gamestate.GameStateModel;
 import minesweeper.solver.Solver;
-import minesweeper.solver.settings.SolverSettings;
 import minesweeper.structure.Action;
 
 import java.math.BigDecimal;
+import java.util.concurrent.TimeUnit;
 
 public class ExtendedWorker implements Runnable {
 
     private boolean stop = false;
     private final ExtendedBulk controller;
+    private final int number;
 
-    protected ExtendedWorker(ExtendedBulk controller) {
+    protected ExtendedWorker(ExtendedBulk controller, int number) {
         this.controller = controller;
+        this.number = number;
     }
 
     @Override
     public void run() {
 
-        System.out.println(Thread.currentThread().getName() + " is starting");
+        System.out.println("worker-" + number + " is starting");
 
         ExtendedRequest request = controller.getNextRequest(null);
+        request.core = this.number;
 
         while (!stop) {
 
@@ -31,11 +34,13 @@ public class ExtendedWorker implements Runnable {
 
             } else if (request.action == ExtendedRequest.BulkAction.WAIT) { // wait and then ask again
                 try {
-                    Thread.sleep(100);
+                    TimeUnit.MILLISECONDS.sleep(100);
                 } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
 
                 request = controller.getNextRequest(null);
+                request.core = this.number;
             } else {
 
                 //System.out.println("Playing game sequence " + request.sequence);
@@ -44,13 +49,13 @@ public class ExtendedWorker implements Runnable {
 
                 // return it to the controller
                 request = controller.getNextRequest(request);
-
+                request.core = this.number;
             }
 
         }
 
         System.out.println(Thread.currentThread().getName() + " is stopping");
-        controller.consumer.print();
+        controller.consumer.finishThread();
     }
 
     private void playGame(ExtendedRequest request) {
@@ -90,13 +95,12 @@ public class ExtendedWorker implements Runnable {
                     System.out.println("Game (" + request.gs.showGameKey() + ") move with probability of " + prob + "! - " + move);
                 }
 
-                boolean result = request.gs.doAction(move);
+                request.gs.doAction(move);
 
                 state = request.gs.getGameState();
 
                 // only monitor good guesses (brute force, probability engine, zonal, opening book and hooks)
-                this.controller.consumer.processAction(move, prob,
-                        state == GameStateModel.STARTED || state == GameStateModel.WON);
+                this.controller.consumer.processAction(request.gs, move, prob, number);
 
                 if (state == GameStateModel.LOST || state == GameStateModel.WON) {
                     break play;

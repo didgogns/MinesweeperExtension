@@ -16,7 +16,7 @@ import static java.lang.Math.min;
  *   - Guess 50/50 or similar fixed patterns as soon as it discovers (will be VERY hard to implement!)
  */
 
-public class HumanlySolver extends Solver {
+public class HumanlySolver extends ExtendedSolver {
     public HumanlySolver(GameStateModel myGame, SolverSettings preferences, boolean interactive) {
         super(myGame, preferences, interactive);
     }
@@ -43,4 +43,6 @@ public class HumanlySolver extends Solver {
         }
         return new Action[]{bestCandidate};
     }
+
+
 }
